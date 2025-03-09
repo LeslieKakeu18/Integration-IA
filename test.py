@@ -516,3 +516,95 @@ plt.legend(loc='upper left')
 plt.grid(True)
 plt.title('AdaBoost Prediction vs True RUL')
 plt.show()
+
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime as dt
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import MinMaxScaler
+
+
+
+
+
+# Chargement des données
+train_data = pd.read_csv("train_FD001.txt", sep='\\s+', names=columns)  
+test_data = pd.read_csv("test_FD001.txt", sep='\\s+', names=columns)    
+true_rul = pd.read_csv("RUL_FD001.txt", sep='\\s+', names=['RUL'])
+
+# Fonction pour ajouter la durée de vie restante (RUL)
+def add_remaining_RUL(data):
+    train_data_by_engine = data.groupby(by='engine')
+    max_cycles = train_data_by_engine['cycle'].max()
+    merged = data.merge(max_cycles.to_frame(name='max_cycles'), left_on='engine', right_index=True)
+    merged["RUL"] = merged["max_cycles"] - merged['cycle']
+    merged = merged.drop("max_cycles", axis=1)
+    return merged
+
+train_data = add_remaining_RUL(train_data)
+
+# Normalisation des données
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(train_data.drop(['engine','cycle','RUL'], axis=1))
+scaled_data = pd.DataFrame(scaled_data, columns=train_data.drop(['engine','cycle','RUL'], axis=1).columns)
+
+# Séparation des données d'entraînement et de test
+X_train = scaled_data
+Y_train = train_data['RUL']
+X_test = test_data.groupby('engine').last().reset_index().drop(['setting1','setting2','sensor6','sensor5','sensor16','setting3','sensor1','sensor10','sensor18','sensor19'], axis=1)
+scaled_test_data = scaler.transform(X_test.drop(['engine', 'cycle'], axis=1))
+scaled_test_data = pd.DataFrame(scaled_test_data, columns=X_test.drop(['engine', 'cycle'], axis=1).columns)
+Y_test = true_rul
+
+# 1. Entraînement du modèle Decision Tree
+start_4 = dt.now()
+
+# Créer une instance du modèle Decision Tree
+dt_regressor = DecisionTreeRegressor(random_state=42)
+
+# Entraîner le modèle sur les données d'entraînement
+dt_regressor.fit(X_train, Y_train)
+
+# Prédictions sur les données d'entraînement et de test
+Y_predict_train_dt = dt_regressor.predict(X_train)
+Y_predict_test_dt = dt_regressor.predict(scaled_test_data)
+
+# Affichage du temps d'exécution
+runtime = (dt.now() - start_4).seconds
+print('Decision Tree Regressor evaluation:')
+print(f'Run time equals: {runtime}s')
+
+# Fonction d'évaluation
+def evaluate(y_true, y_hat, label='test'):
+    mse = mean_squared_error(y_true, y_hat)
+    rmse = np.sqrt(mse)
+    variance = r2_score(y_true, y_hat)
+    print(f'{label} set RMSE: {rmse:.2f}, R²: {variance:.3f}')
+
+# Évaluer sur les données d'entraînement et de test
+evaluate(Y_train, Y_predict_train_dt, 'train')
+evaluate(Y_test, Y_predict_test_dt, 'test')
+
+# 2. Visualisation des résultats
+plt.figure(figsize=(18, 10))
+
+# Courbe des valeurs réelles
+plt.plot(Y_test, color='red', linestyle='-', linewidth=2, label='RUL (True)')
+
+# Courbe des prédictions
+plt.plot(Y_predict_test_dt, color='blue', linestyle='--', linewidth=2, label='Decision Tree Prediction')
+
+# Personnalisation du graphique
+plt.legend(loc='upper left', fontsize=14)
+plt.grid(visible=True, linestyle='--', alpha=0.7)
+plt.title('Decision Tree Prediction vs True RUL', fontweight='bold', fontsize=18, color='darkblue')
+plt.xlabel('Index', fontweight='bold', fontsize=14)
+plt.ylabel('Remaining Useful Life (RUL)', fontweight='bold', fontsize=14)
+
+# Ajustement des marges
+plt.tight_layout()
+plt.show()
