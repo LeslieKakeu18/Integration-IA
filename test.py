@@ -293,6 +293,8 @@ from sklearn.svm import SVR                         # Modèle de régression bas
 from sklearn.preprocessing import MinMaxScaler      # Outil pour normaliser les données
 from sklearn.metrics import mean_squared_error, r2_score  # Métriques pour évaluer les performances des modèles
 from datetime import datetime as dt   
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.tree import DecisionTreeRegressor
 
 
              # Bibliothèque pour travailler avec les dates
@@ -470,22 +472,6 @@ plt.show()
 st.pyplot(fig)
 
 
-
-
-
-
-
-
-
-
-
-
-from sklearn.ensemble import AdaBoostRegressor
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-import numpy as np
-import matplotlib.pyplot as plt
-from datetime import datetime as dt
 
 # 1. Entraînement du modèle AdaBoost
 start_5 = dt.now()
