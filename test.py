@@ -471,3 +471,58 @@ st.pyplot(fig)
 
 
 
+
+
+
+
+
+
+
+
+
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime as dt
+
+# 1. Entraînement du modèle AdaBoost
+start_5 = dt.now()
+
+# Créer un arbre de décision de base (base learner)
+base_learner = DecisionTreeRegressor(max_depth=3, random_state=42)
+
+# Créer l'instance du modèle AdaBoostRegressor
+adaboost_regressor = AdaBoostRegressor(estimator=base_learner, n_estimators=50, random_state=42)
+
+# Entraîner le modèle sur les données d'entraînement
+adaboost_regressor.fit(X_train_s, Y_train)
+
+# Prédictions sur les données d'entraînement et de test
+Y_predict_train_ab = adaboost_regressor.predict(X_train_s)
+Y_predict_test_ab = adaboost_regressor.predict(X_test_s)
+
+# Affichage du temps d'exécution
+print('AdaBoost Regressor evaluation:')
+print('run time equals: ' + str((dt.now() - start_5).seconds) + 's')
+
+# Évaluation du modèle en utilisant les métriques RMSE et R²
+def evaluate(y_true, y_hat, label='test'):
+    mse = mean_squared_error(y_true, y_hat)
+    rmse = np.sqrt(mse)
+    variance = r2_score(y_true, y_hat)
+    print('{} set RMSE: {}, R2: {}'.format(label, rmse, variance))
+
+# Évaluer sur les données d'entraînement et de test
+evaluate(Y_train, Y_predict_train_ab, 'train')
+evaluate(Y_test, Y_predict_test_ab)
+
+# 2. Visualisation des résultats
+plt.figure(figsize=(18, 10))
+plt.plot(Y_test, color='yellow', label='RUL (True)')
+plt.plot(Y_predict_test_ab, label='AdaBoost prediction')
+plt.legend(loc='upper left')
+plt.grid(True)
+plt.title('AdaBoost Prediction vs True RUL')
+plt.show()
