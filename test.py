@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.ensemble import AdaBoostRegressor
-from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from datetime import datetime as dt
 
@@ -295,6 +293,8 @@ from sklearn.metrics import mean_squared_error, r2_score  # Métriques pour éva
 from datetime import datetime as dt   
 from sklearn.ensemble import AdaBoostRegressor
 from sklearn.tree import DecisionTreeRegressor
+import streamlit as st
+
 
 
              # Bibliothèque pour travailler avec les dates
@@ -421,11 +421,15 @@ evaluate(Y_train, Y_predict_train, 'train')  # Évaluation des prédictions sur 
 evaluate(Y_test, Y_predict_test)  # Évaluation des prédictions sur les données de test
 
 # Affichage de la courbe de la prédiction de la régression linéaire
-fig = plt.figure(figsize=(18,10))
+# Création de la figure avec Matplotlib
+fig = plt.figure(figsize=(18, 10))
 plt.plot(Y_test, color='red', label='RUL')  # Courbe de la valeur réelle de RUL
 plt.plot(Y_predict_test, label='Prédiction régression linéaire')  # Courbe de la prédiction
 plt.legend(loc='upper left')
 plt.grid(True)
+
+# Affichage de la figure dans Streamlit
+st.pyplot(fig)  # Utilisation de st.pyplot pour afficher la figure dans Streamlit
 
 # TEST 2: Arbre de Décision (Random Forest)
 start_2 = dt.now()  # Enregistrement du temps de début pour l'arbre de décision
