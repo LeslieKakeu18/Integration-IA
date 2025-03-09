@@ -271,7 +271,7 @@ st.text(classification_rep)
 # Visualisation des deux premières composantes principales
 st.markdown('### Visualisation des deux premières composantes principales')
 plt.figure(figsize=(10, 6))
-scatter = plt.scatter(data_pca[:, 0], data_pca[:, 1], c=data['label'], cmap='viridis', alpha=0.7, edgecolor='k')
+scatter = plt.scatter(data_pca[:, 0], data_pca[:, 1], c=y, cmap='viridis', alpha=0.7, edgecolor='k')
 plt.colorbar(scatter, label='Label (0 = Normal, 1 = Critique)')
 plt.xlabel('Composante principale 1')
 plt.ylabel('Composante principale 2')
