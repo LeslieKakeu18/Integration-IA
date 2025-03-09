@@ -274,7 +274,7 @@ plt.figure(figsize=(10, 6))
 scatter = plt.scatter(data_pca[:, 0], data_pca[:, 1], c=data['label'], cmap='viridis', alpha=0.7, edgecolor='k')
 plt.colorbar(scatter, label='Label (0 = Normal, 1 = Critique)')
 plt.xlabel('Composante principale 1')
-plt.ylabel('Composante principale 2') 
+plt.ylabel('Composante principale 2')
 plt.title('Visualisation PCA avec classes')
 plt.grid(True, linestyle='--', alpha=0.6)
 st.pyplot(plt)
@@ -282,95 +282,148 @@ st.pyplot(plt)
  
 
 
-# Importation des bibliothèques
+# Nous commençons par importer toutes les bibliothèques nécessaires
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error, r2_score
-from datetime import datetime as dt
+from sklearn.ensemble import RandomForestRegressor  # Modèle de régression par forêts aléatoires
+from sklearn.linear_model import LinearRegression   # Modèle de régression linéaire
+from sklearn.svm import SVR                         # Modèle de régression basé sur les machines à vecteurs de support (SVM)
+from sklearn.preprocessing import MinMaxScaler      # Outil pour normaliser les données
+from sklearn.metrics import mean_squared_error, r2_score  # Métriques pour évaluer les performances des modèles
+from datetime import datetime as dt   
 
-# Configuration de pandas
-pd.set_option('display.max_columns', None)
-pd.set_option('display.width', None)
 
-# Définition des colonnes du dataset
-eng_cycle_col = ['engine', 'cycle']
-setting_col = ['setting1', 'setting2', 'setting3']
-sensor_col = [f'sensor{i}' for i in range(1, 22)]
-columns = eng_cycle_col + setting_col + sensor_col
+             # Bibliothèque pour travailler avec les dates
 
-# Importation des données
-train_data = pd.read_csv("train_FD001.txt", sep='\\s+', names=columns)
-test_data = pd.read_csv("test_FD001.txt", sep='\\s+', names=columns)
-true_rul = pd.read_csv("RUL_FD001.txt", sep='\\s+', names=['RUL'])
+# Configuration de l'affichage des DataFrames avec pandas
+pd.set_option('display.max_columns', None)  # Afficher toutes les colonnes dans les sorties pandas
+pd.set_option('display.width', None)        # Afficher toutes les données sur une seule ligne
 
-# Fonction pour ajouter la colonne "RUL"
+# Création des colonnes pour notre jeu de données
+eng_cycle_col = ['engine', 'cycle']  # Colonnes pour identifier les moteurs et les cycles
+setting_col = ['setting1', 'setting2', 'setting3']  # Colonnes pour les réglages opérationnels des machines
+sensor_col = ['sensor1', 'sensor2', 'sensor3', 'sensor4', 'sensor5', 'sensor6', 'sensor7',
+              'sensor8', 'sensor9', 'sensor10', 'sensor11', 'sensor12', 'sensor13',
+              'sensor14', 'sensor15', 'sensor16', 'sensor17', 'sensor18', 'sensor19',
+              'sensor20', 'sensor21']  # Colonnes pour les mesures des capteurs
+columns = eng_cycle_col + setting_col + sensor_col  # Regroupement de toutes les colonnes
+
+# Importation des données nécessaires
+# NB : Nous travaillons uniquement sur le jeu de données FD001
+train_data = pd.read_csv("train_FD001.txt", sep='\\s+', names=columns)  # Données d'entraînement
+test_data = pd.read_csv("test_FD001.txt", sep='\\s+', names=columns)    # Données de test
+true_rul = pd.read_csv("RUL_FD001.txt", sep='\\s+', names=['RUL'])      # Données de durée de vie restante réelle (RUL)
+
+# Vérifions les données et leur structure
+print('Données d\'entraînement et leur forme :')
+print(train_data)  # Affiche les premières lignes du jeu de données d'entraînement
+print(train_data.shape)  # Affiche les dimensions des données d'entraînement
+print('Données de test et leur forme :')
+print(test_data)  # Affiche les premières lignes du jeu de données de test
+print(test_data.shape)  # Affiche les dimensions des données de test
+
+
+
+# ajouter une colonne "RUL" (Remaining Useful Life, ou durée de vie utile restante)
+
 def add_remaining_RUL(data):
-    max_cycles = data.groupby('engine')['cycle'].max()
+    # Regroupe les données par moteur (en utilisant la colonne 'engine') pour avoir les informations sur chaque moteur.
+    train_data_by_engine = data.groupby(by='engine')
+    
+    # Calcule le nombre maximal de cycles (durée de vie maximale) pour chaque moteur.
+    max_cycles = train_data_by_engine['cycle'].max()
+    
+    # Fusionne les données d'origine avec la durée de vie maximale (max_cycles) de chaque moteur.
+    # Cette opération ajoute une nouvelle colonne 'max_cycles' qui contient la valeur de la durée de vie maximale pour chaque moteur.
     merged = data.merge(max_cycles.to_frame(name='max_cycles'), left_on='engine', right_index=True)
+    
+    # Crée la colonne "RUL" en soustrayant le cycle actuel (cycle) de la durée de vie maximale (max_cycles).
+    # Cela donne la durée de vie restante (RUL) pour chaque observation de moteur.
     merged["RUL"] = merged["max_cycles"] - merged['cycle']
-    return merged.drop("max_cycles", axis=1)
+    
+    # Supprime la colonne "max_cycles" car elle n'est plus nécessaire une fois que la colonne "RUL" a été calculée.
+    merged = merged.drop("max_cycles", axis=1)
+    
+    # Retourne le DataFrame mis à jour avec la nouvelle colonne "RUL".
+    return merged
 
-# Ajout de la colonne "RUL"
+# Applique la fonction à l'ensemble de données 'train_data' pour ajouter la colonne "RUL".
 train_data = add_remaining_RUL(train_data)
 
-# Suppression des colonnes inutiles pour l'entraînement
-cols_to_drop = ['engine', 'cycle']
-clean_train_data = train_data.drop(cols_to_drop, axis=1)
+# Affiche les données mises à jour avec la colonne "RUL".
+print(train_data)
 
-# Normalisation des données d'entraînement
-scaler = MinMaxScaler()
-scaled_data = scaler.fit_transform(clean_train_data.drop('RUL', axis=1))
-scaled_data = pd.DataFrame(scaled_data, columns=clean_train_data.drop('RUL', axis=1).columns)
 
-# Séparation des features (X) et de la cible (Y)
-X_train = scaled_data
-Y_train = train_data['RUL']
 
-# Préparation des données de test
-X_test = test_data.groupby('engine').last().reset_index()
-X_test = X_test.drop(['setting1', 'setting2', 'sensor6', 'sensor5', 'sensor16',
-                      'setting3', 'sensor1', 'sensor10', 'sensor18', 'sensor19'], axis=1)
 
-scaled_test_data = scaler.transform(X_test.drop(['engine', 'cycle'], axis=1))
-scaled_test_data = pd.DataFrame(scaled_test_data, columns=X_test.drop(['engine', 'cycle'], axis=1).columns)
+ #Normalisation des données d'entraînement avec Min-Max Scaling
+scaler=MinMaxScaler()
+scaled_data=scaler.fit_transform(clean_train_data.drop(['engine','cycle','RUL'],axis=1))
+scaled_data=pd.DataFrame(scaled_data, columns=clean_train_data.drop(['engine','cycle', 'RUL'], axis=1).columns)
 
-Y_test = true_rul['RUL']
-X_train_s = X_train
-X_test_s = scaled_test_data
+# Préparation des données pour l'apprentissage supervisé
 
-# Fonction d'évaluation du modèle
+
+   # Les données sont traitées pour s'assurer qu'elles sont adaptées à un modèle
+#d'apprentissage supervisé, spécifiquement une régression linéaire dans ce cas.
+   # La régression linéaire est utilisée pour prédire la durée de vie restante des moteurs en 
+#trouvant une relation linéaire entre les caractéristiques des moteurs et leur RUL.
+    #La préparation des données consiste à séparer les variables d'entrée (X) et la cible (Y), ce qui est une étape essentielle avant de pouvoir entraîner le modèle de régression linéaire.
+#since our values in the dataset are contunious, numerical and it contains the targetted outcome we will be using sup
+X_train = clean_train_data
+Y_train = clean_train_data.pop('RUL')
+X_test = test_data.groupby('engine').last().reset_index().drop(['setting1','setting2','sensor6','sensor5','sensor16','setting3','sensor1','sensor10','sensor18','sensor19'], axis=1)
+
+#data test 
+scaled_test_data=scaler.transform(X_test.drop(['engine','cycle'],axis=1))
+
+scaled_test_data=pd.DataFrame(scaled_test_data, columns=X_test.drop(['engine','cycle'], axis=1).columns)
+print('Cheking the scaled data')
+print(scaled_data)
+print(scaled_test_data)
+Y_test= true_rul
+X_train_s=scaled_data
+X_test_s=scaled_test_data
+
+
+# Définition de la fonction 'evaluate' pour évaluer les performances du modèle
 def evaluate(y_true, y_hat, label='test'):
+    # Calcul de l'erreur quadratique moyenne (MSE)
     mse = mean_squared_error(y_true, y_hat)
+    
+    # Calcul de la racine carrée de l'erreur quadratique moyenne (RMSE)
     rmse = np.sqrt(mse)
+    
+    # Calcul du coefficient de détermination (R2) pour évaluer la variance expliquée par le modèle
     variance = r2_score(y_true, y_hat)
-    print('{} set RMSE: {:.2f}, R2: {:.2f}'.format(label, rmse, variance))
+    
+    # Affichage des résultats de l'évaluation (RMSE et R2) pour l'ensemble de données spécifié
+    print('{} set RMSE:{}, R2:{}'.format(label, rmse, variance))
+
 
 # TEST 1: Régression Linéaire
-start_1 = dt.now()
-lm = LinearRegression()
-lm.fit(X_train_s, Y_train)
-Y_predict_train = lm.predict(X_train_s)
-Y_predict_test = lm.predict(X_test_s)
+start_1 = dt.now()  # Enregistrement du temps de début pour la régression linéaire
+lm = LinearRegression()  # Initialisation du modèle de régression linéaire
+lm.fit(X_train_s, Y_train)  # Entraînement du modèle avec les données d'entraînement
+Y_predict_train = lm.predict(X_train_s)  # Prédictions sur les données d'entraînement
+Y_predict_test = lm.predict(X_test_s)  # Prédictions sur les données de test
 
-print('Évaluation de la Régression Linéaire:')
-print('Le temps d\'exécution est de : {}s'.format((dt.now() - start_1).seconds))
+# Affichage du score de la régression linéaire et du temps d'exécution
+print('Évaluation de la Régression Linéaire: ')
+print('Le temps d\'exécution est de : ' + str((dt.now() - start_1).seconds) + 's')
 
-evaluate(Y_train, Y_predict_train, 'train')
-evaluate(Y_test, Y_predict_test)
+# Évaluation du modèle en utilisant la fonction `evaluate`
+evaluate(Y_train, Y_predict_train, 'train')  # Évaluation des prédictions sur les données d'entraînement
+evaluate(Y_test, Y_predict_test)  # Évaluation des prédictions sur les données de test
 
-# Affichage de la courbe de la prédiction
-plt.figure(figsize=(18, 10))
-plt.plot(Y_test.values, color='red', label='RUL réel')
-plt.plot(Y_predict_test, label='Prédiction Régression Linéaire')
+# Affichage de la courbe de la prédiction de la régression linéaire
+fig = plt.figure(figsize=(18,10))
+plt.plot(Y_test, color='red', label='RUL')  # Courbe de la valeur réelle de RUL
+plt.plot(Y_predict_test, label='Prédiction régression linéaire')  # Courbe de la prédiction
 plt.legend(loc='upper left')
 plt.grid(True)
-plt.show()
 
 # TEST 2: Arbre de Décision (Random Forest)
 start_2 = dt.now()  # Enregistrement du temps de début pour l'arbre de décision
